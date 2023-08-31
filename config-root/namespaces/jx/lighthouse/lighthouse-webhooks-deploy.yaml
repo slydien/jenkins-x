@@ -1,0 +1,110 @@
+# Source: lighthouse/templates/webhooks-deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: lighthouse-webhooks
+  labels:
+    chart: "lighthouse-1.13.5"
+    app: lighthouse-webhooks
+    git.jenkins-x.io/sha: annotate
+    gitops.jenkins-x.io/pipeline: 'namespaces'
+  annotations:
+    checksum/config: bf4718f4e3a30e9ef507535c4ad1ec8003ef7f751c5a8819e93e688d961e779e
+    meta.helm.sh/release-name: 'lighthouse'
+    wave.pusher.com/update-on-config-change: 'true'
+  namespace: jx
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: lighthouse-webhooks
+  template:
+    metadata:
+      labels:
+        app: lighthouse-webhooks
+      annotations:
+        prometheus.io/port: "2112"
+        prometheus.io/scrape: "true"
+        jenkins-x.io/hash: '31740de24273ba1106ff562043e679dae5c4a96b5f749896ba9d4332095fe14a'
+    spec:
+      serviceAccountName: lighthouse-webhooks
+      containers:
+      - name: lighthouse-webhooks
+        image: ghcr.io/jenkins-x/lighthouse-webhooks:1.13.5
+        imagePullPolicy: IfNotPresent
+        args:
+        - "--namespace=jx"
+        env:
+        - name: "GIT_KIND"
+          value: "github"
+        - name: "LH_CUSTOM_TRIGGER_COMMAND"
+          value: "jx"
+        - name: "GIT_SERVER"
+          value: "https://github.com"
+        - name: "GIT_USER"
+          value: slydien
+        - name: "GIT_TOKEN"
+          valueFrom:
+            secretKeyRef:
+              name: lighthouse-oauth-token
+              key: oauth
+        - name: "HMAC_TOKEN"
+          valueFrom:
+            secretKeyRef:
+              name: lighthouse-hmac-token
+              key: hmac
+        - name: "JX_LOG_FORMAT"
+          value: "json"
+        - name: "LOGRUS_FORMAT"
+          value: "json"
+        - name: LOGRUS_SERVICE
+          value: "lighthouse"
+        - name: LOG_LEVEL
+          value: "info"
+        - name: LOGRUS_SERVICE_VERSION
+          value: "1.13.5"
+        - name: LOGRUS_STACK_SKIP
+          value: ""
+        - name: DEFAULT_PIPELINE_RUN_SERVICE_ACCOUNT
+          value: "tekton-bot"
+        - name: DEFAULT_PIPELINE_RUN_TIMEOUT
+          value: "2h0m0s"
+        - name: FILE_BROWSER
+          value: "git"
+        - name: JX_DEFAULT_IMAGE
+          value: "ghcr.io/jenkins-x/builder-maven:2.1.149-768"
+        - name: LIGHTHOUSE_DASHBOARD_TEMPLATE
+          value: "namespaces/{{ .Namespace }}/pipelineruns/{{ .PipelineRun }}"
+        - name: LIGHTHOUSE_VERSIONSTREAM_JENKINS_X_JX3_PIPELINE_CATALOG
+          value: "2771af5e1d60b013a1640a8e4f045ff00310909f"
+        envFrom:
+        - secretRef:
+            name: jx-boot-job-env-vars
+            optional: true
+        ports:
+        - containerPort: 8080
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 8080
+          initialDelaySeconds: 60
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 1
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 8080
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 1
+        resources:
+          limits:
+            cpu: 100m
+            memory: 512Mi
+          requests:
+            cpu: 80m
+            memory: 128Mi
+        volumeMounts:
+      volumes:
+      terminationGracePeriodSeconds: 180
